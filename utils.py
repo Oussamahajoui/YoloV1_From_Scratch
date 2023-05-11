@@ -176,30 +176,39 @@ def mean_average_precision(
                 if iou > best_iou:
                     best_iou = iou
                     best_gt_idx = idx
+                if best_iou > iou_threshold:
+                    # only detect ground truth detection once
+                    if amount_bboxes[detection[0]][best_gt_idx] == 0:
+                        # true positive and add this bounding box to seen
+                        TP[detection_idx] = 1
+                        amount_bboxes[detection[0]][best_gt_idx] = 1
+                    else:
+                        FP[detection_idx] = 1
 
-            if best_iou > iou_threshold:
-                # only detect ground truth detection once
-                if amount_bboxes[detection[0]][best_gt_idx] == 0:
-                    # true positive and add this bounding box to seen
-                    TP[detection_idx] = 1
-                    amount_bboxes[detection[0]][best_gt_idx] = 1
+                # if IOU is lower then the detection is a false positive
                 else:
                     FP[detection_idx] = 1
 
-            # if IOU is lower then the detection is a false positive
-            else:
-                FP[detection_idx] = 1
+            # Handle edge case where there are no true positives
+            if len(TP) == 0:
+                average_precisions.append(0)
+                continue
 
-        TP_cumsum = torch.cumsum(TP, dim=0)
-        FP_cumsum = torch.cumsum(FP, dim=0)
-        recalls = TP_cumsum / (total_true_bboxes + epsilon)
-        precisions = torch.divide(TP_cumsum, (TP_cumsum + FP_cumsum + epsilon))
-        precisions = torch.cat((torch.tensor([1]), precisions))
-        recalls = torch.cat((torch.tensor([0]), recalls))
-        # torch.trapz for numerical integration
-        average_precisions.append(torch.trapz(precisions, recalls))
+            # compute precision and recall values
+            TP_cumsum = torch.cumsum(TP, dim=0)
+            FP_cumsum = torch.cumsum(FP, dim=0)
+            recalls = TP_cumsum / (total_true_bboxes + epsilon)
+            precisions = torch.divide(TP_cumsum, (TP_cumsum + FP_cumsum + epsilon))
+            precisions = torch.cat((torch.tensor([1]), precisions))
+            recalls = torch.cat((torch.tensor([0]), recalls))
 
-    return sum(average_precisions) / len(average_precisions)
+            # calculate the area under the precision-recall curve using numerical integration (trapezoidal rule)
+            average_precisions.append(torch.trapz(precisions, recalls))
+
+        # calculate the mean average precision across all classes
+        map = sum(average_precisions) / len(average_precisions)
+
+        return map
 
 
 def plot_image(image, boxes):
