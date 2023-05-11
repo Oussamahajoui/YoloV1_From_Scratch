@@ -1,0 +1,8 @@
+
+Data/100examples.csv
+Data/8examples.csv
+Data/generate_csv.py
+*.jpg
+*.txt
+Data/test.csv
+Data/train.csv
